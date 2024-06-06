@@ -67,28 +67,33 @@ if user:
         return completed_tasks / total_tasks
 
     # Função para registrar o tempo da tarefa
-    def record_time(user, step, task):
-        start_time = time.time()
+    def record_time(user, step, task, start_time):
         end_time = time.time()
         duration = end_time - start_time
-        data.append({
+        new_row = {
             'User': user,
             'Step': step,
             'Task': task,
             'Start Time': start_time,
             'End Time': end_time,
             'Duration': duration
-        }, ignore_index=True)
+        }
+        global data
+        data = data.append(new_row, ignore_index=True)
         save_data(data)
 
     # Dicionário para armazenar o estado das tarefas
     task_status = {}
+    start_times = {}
+
     for step, tasks in steps.items():
         st.subheader(step)
         for task in tasks:
-            if st.checkbox(task):
-                record_time(user, step, task)
-        task_status[step] = {task: st.checkbox(task, key=f"{step}_{task}") for task in tasks}
+            if st.checkbox(task, key=f"{step}_{task}"):
+                if f"{step}_{task}" not in start_times:
+                    start_times[f"{step}_{task}"] = time.time()
+                record_time(user, step, task, start_times[f"{step}_{task}"])
+            task_status[step] = {task: st.checkbox(task, key=f"{step}_{task}_status") for task in tasks}
 
     # Cálculo do progresso por etapa
     progress_by_step = {step: calculate_progress(tasks) for step, tasks in task_status.items()}
