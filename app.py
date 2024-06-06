@@ -90,14 +90,21 @@ if user:
     for step, tasks in steps.items():
         st.subheader(step)
         for task in tasks:
-            if st.checkbox(task, key=f"{step}_{task}"):
-                if f"{step}_{task}" not in start_times:
-                    start_times[f"{step}_{task}"] = time.time()
-                record_time(user, step, task, start_times[f"{step}_{task}"])
-            task_status[step] = {task: st.checkbox(task, key=f"{step}_{task}_status") for task in tasks}
+            task_key = f"{step}_{task}"
+            if st.checkbox(task, key=task_key):
+                if task_key not in start_times:
+                    start_times[task_key] = time.time()
+                if task_key not in task_status:
+                    task_status[task_key] = True
+                    record_time(user, step, task, start_times[task_key])
+            else:
+                task_status[task_key] = False
 
     # Cálculo do progresso por etapa
-    progress_by_step = {step: calculate_progress(tasks) for step, tasks in task_status.items()}
+    progress_by_step = {}
+    for step, tasks in steps.items():
+        step_task_status = {task: task_status[f"{step}_{task}"] for task in tasks}
+        progress_by_step[step] = calculate_progress(step_task_status)
 
     # Exibir barra de progresso por etapa
     for step, progress in progress_by_step.items():
@@ -129,7 +136,10 @@ if user:
     st.dataframe(ranking)
 
     # Mostrar posição do usuário
-    user_rank = ranking[ranking['User'] == user]['Rank'].values[0]
-    st.write(f"{user}, você está na posição {int(user_rank)} no ranking.")
+    if user in ranking['User'].values:
+        user_rank = ranking[ranking['User'] == user]['Rank'].values[0]
+        st.write(f"{user}, você está na posição {int(user_rank)} no ranking.")
+    else:
+        st.write(f"{user}, você ainda não tem um ranking.")
 
 
