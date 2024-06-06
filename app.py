@@ -27,13 +27,14 @@ if user:
         "Verificar Período a Ser Lançado e Existência de Lançamentos na Conta Banco": [
             "Identificar o período contábil necessário.",
             "Verificar lançamentos contábeis existentes na conta bancária para o período.",
-            "Comparar saldo do extrato bancário com saldos contábeis."
+            "Comparar extrato bancário com lançamentos contábeis."
         ],
         "Usar Ferramenta Mister Contador / Visão Lógica de Acordo com Cliente": [
             "Selecionar a ferramenta contábil apropriada (Mister Contador ou Visão Lógica).",
-            "Verificar regras salvas e arquivos de regras na pasta correta para utiliza",
-            "Aplicar regras que favoreçam a leitura da maior parte dos lançamentos repetitivos",
-            "Acessar suporte técnico quando necessário."
+            "Garantir uso eficaz das funcionalidades da ferramenta.",
+            "Realizar treinamentos regulares para o uso das ferramentas.",
+            "Utilizar guias de referência rápida e tutoriais.",
+            "Acessar suporte técnico conforme necessário."
         ],
         "Verificar Necessidade de Ajuste no Histórico do Extrato Bancário": [
             "Revisar o extrato bancário.",
