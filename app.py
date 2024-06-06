@@ -19,21 +19,21 @@ task_status = {task: st.checkbox(task) for task in tasks}
 # Cálculo do progresso
 completed_tasks = sum(task_status.values())
 total_tasks = len(tasks)
-progress = completed_tasks / total_tasks * 100
+progress = completed_tasks / total_tasks  # Ajuste aqui para garantir valor entre 0 e 1
 
 # Exibir barra de progresso
 st.progress(progress)
-st.write(f"Progresso: {int(progress)}% Completo")
+st.write(f"Progresso: {int(progress * 100)}% Completo")
 
 # Mensagem de congratulação
-if progress == 100:
+if progress == 1:
     st.success("Parabéns! Você completou todas as tarefas do workflow.")
 
 # Elementos de gamificação
 st.subheader("Gamificação")
-if progress >= 50:
+if progress >= 0.5:
     st.balloons()
     st.write("Você atingiu 50% do progresso!")
-if progress == 100:
+if progress == 1:
     st.snow()
     st.write("Você completou 100% do workflow! 🏆")
