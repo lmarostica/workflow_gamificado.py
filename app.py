@@ -1,145 +1,69 @@
 import streamlit as st
-import time
+from datetime import datetime
 import pandas as pd
-import os
 
-# Função para carregar os dados do ranking
-def load_data():
-    if os.path.exists('ranking.csv'):
-        return pd.read_csv('ranking.csv')
-    else:
-        return pd.DataFrame(columns=['User', 'Step', 'Task', 'Start Time', 'End Time', 'Duration'])
+# Classe para gerenciar o checklist gamificado
+class GamifiedChecklist:
+    def __init__(self, user, company):
+        self.user = user
+        self.company = company
+        self.tasks = []
+        self.points = 0
+        self.level = 1
+        self.start_time = datetime.now()
 
-# Função para salvar os dados do ranking
-def save_data(data):
-    data.to_csv('ranking.csv', index=False)
+    def add_task(self, task_name, points):
+        self.tasks.append({'name': task_name, 'completed': False, 'points': points})
 
-# Interface de Login
-st.title('Workflow Contábil Gamificado')
-user = st.text_input("Digite seu nome para iniciar o workflow")
+    def complete_task(self, task_index):
+        if not self.tasks[task_index]['completed']:
+            self.tasks[task_index]['completed'] = True
+            self.points += self.tasks[task_index]['points']
+            self.check_level_up()
 
-if user:
-    # Carregar dados do ranking
-    data = load_data()
+    def check_level_up(self):
+        level_thresholds = {1: 100, 2: 200, 3: 300, 4: 400}
+        for level, threshold in level_thresholds.items():
+            if self.points >= threshold:
+                self.level = level + 1
 
-    # Etapas e checklists
-    steps = {
-        "Verificar Período a Ser Lançado e Existência de Lançamentos na Conta Banco": [
-            "Identificar o período contábil necessário.",
-            "Verificar lançamentos contábeis existentes na conta bancária para o período.",
-            "Comparar extrato bancário com lançamentos contábeis."
-        ],
-        "Usar Ferramenta Mister Contador / Visão Lógica de Acordo com Cliente": [
-            "Selecionar a ferramenta contábil apropriada (Mister Contador ou Visão Lógica).",
-            "Garantir uso eficaz das funcionalidades da ferramenta.",
-            "Realizar treinamentos regulares para o uso das ferramentas.",
-            "Utilizar guias de referência rápida e tutoriais.",
-            "Acessar suporte técnico conforme necessário."
-        ],
-        "Verificar Necessidade de Ajuste no Histórico do Extrato Bancário": [
-            "Revisar o extrato bancário.",
-            "Identificar e corrigir inconsistências ou ajustes necessários nos históricos dos lançamentos.",
-            "Confirmar ajustes corretos no sistema contábil."
-        ],
-        "Após Importação, Fazer Conciliação Bancária no Único": [
-            "Realizar conciliação bancária no sistema Único.",
-            "Comparar lançamentos contábeis com registros do extrato bancário.",
-            "Garantir que todas as transações foram conciliadas corretamente.",
-            "Gerar relatórios detalhados de conciliação."
-        ],
-        "Fazer Conciliação de Fornecedor pelo Processo de Conciliador": [
-            "Realizar conciliação de registros de fornecedores.",
-            "Assegurar que registros de pagamento e recebimento estão corretos.",
-            "Conferir todas as transações e resolver discrepâncias.",
-            "Utilizar portal de fornecedores para confirmação de registros."
-        ],
-        "Análise do Balanço": [
-            "Impostos a pagar/recuperar, receita/deduções da receita.",
-            "Distribuição de lucros/lucro disponível ou acumulado.",
-            "Verificação das despesas e fornecedores.",
-            "Parcelamentos de impostos; empréstimos."
-        ]
-    }
-
-    # Função para calcular o progresso
-    def calculate_progress(tasks):
-        completed_tasks = sum(tasks.values())
-        total_tasks = len(tasks)
-        return completed_tasks / total_tasks
-
-    # Função para registrar o tempo da tarefa
-    def record_time(user, step, task, start_time):
-        end_time = time.time()
-        duration = end_time - start_time
-        new_row = {
-            'User': user,
-            'Step': step,
-            'Task': task,
-            'Start Time': start_time,
-            'End Time': end_time,
-            'Duration': duration
+    def get_status(self):
+        return {
+            'user': self.user,
+            'company': self.company,
+            'current_points': self.points,
+            'current_level': self.level,
+            'time_spent': (datetime.now() - self.start_time).total_seconds() // 60  # Em minutos
         }
-        global data
-        data = data.append(new_row, ignore_index=True)
-        save_data(data)
 
-    # Dicionário para armazenar o estado das tarefas
-    task_status = {}
-    start_times = {}
+# Inicialização da aplicação Streamlit
+st.title('Checklist Gamificado')
 
-    for step, tasks in steps.items():
-        st.subheader(step)
-        for task in tasks:
-            task_key = f"{step}_{task}"
-            if st.checkbox(task, key=task_key):
-                if task_key not in start_times:
-                    start_times[task_key] = time.time()
-                if task_key not in task_status:
-                    task_status[task_key] = True
-                    record_time(user, step, task, start_times[task_key])
-            else:
-                task_status[task_key] = False
+# Entrada de informações do usuário e da empresa
+user = st.text_input('Usuário:')
+company = st.text_input('Empresa:')
 
-    # Cálculo do progresso por etapa
-    progress_by_step = {}
-    for step, tasks in steps.items():
-        step_task_status = {task: task_status[f"{step}_{task}"] for task in tasks}
-        progress_by_step[step] = calculate_progress(step_task_status)
+# Criação do objeto checklist
+checklist = GamifiedChecklist(user, company)
 
-    # Exibir barra de progresso por etapa
-    for step, progress in progress_by_step.items():
-        st.write(f"Progresso da etapa '{step}': {int(progress * 100)}% Completo")
-        st.progress(progress)
+# Adição de tarefas ao checklist
+checklist.add_task('Coletor de Insumos', 20)
+checklist.add_task('Mestre da Importação', 30)
+checklist.add_task('Detetive Financeiro', 40)
+# Adicione mais tarefas conforme necessário
 
-    # Cálculo do progresso geral
-    overall_progress = sum(progress_by_step.values()) / len(progress_by_step)
-    st.write(f"Progresso geral: {int(overall_progress * 100)}% Completo")
-    st.progress(overall_progress)
+# Interface para completar tarefas
+for i, task in enumerate(checklist.tasks):
+    if st.button(f"Completar: {task['name']}", key=i):
+        checklist.complete_task(i)
 
-    # Mensagem de congratulação
-    if overall_progress == 1:
-        st.success("Parabéns! Você completou todas as etapas do workflow.")
+# Exibição do status do usuário
+status = checklist.get_status()
+st.write(f"Usuário: {status['user']}")
+st.write(f"Empresa: {status['company']}")
+st.write(f"Pontos Atuais: {status['current_points']}")
+st.write(f"Nível Atual: {status['current_level']}")
+st.write(f"Tempo Gasto: {status['time_spent']} minutos")
 
-    # Elementos de gamificação
-    st.subheader("Gamificação")
-    if overall_progress >= 0.5:
-        st.balloons()
-        st.write("Você atingiu 50% do progresso!")
-    if overall_progress == 1:
-        st.snow()
-        st.write("Você completou 100% do workflow! 🏆")
-
-    # Exibir ranking
-    st.subheader("Ranking")
-    ranking = data.groupby('User')['Duration'].sum().sort_values().reset_index()
-    ranking['Rank'] = ranking['Duration'].rank(method='min')
-    st.dataframe(ranking)
-
-    # Mostrar posição do usuário
-    if user in ranking['User'].values:
-        user_rank = ranking[ranking['User'] == user]['Rank'].values[0]
-        st.write(f"{user}, você está na posição {int(user_rank)} no ranking.")
-    else:
-        st.write(f"{user}, você ainda não tem um ranking.")
-
-
+# Rodar a aplicação com o comando abaixo no terminal
+# streamlit run seu_arquivo.py
