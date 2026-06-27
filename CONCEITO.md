@@ -264,7 +264,8 @@ contábil clássica entra. A inteligência fica na **classificação** (qual con
 
 ### Plano de contas e regime
 - Plano de contas **referencial SPED**, sensível ao **regime tributário** (Simples / Presumido /
-  Real) — o regime muda contas e tratamento. O regime inicial é uma **decisão em aberto** (§13).
+  Real) — o regime muda contas e tratamento. **Regime inicial definido: Simples Nacional**, com
+  escrituração completa (partida dobrada). Detalhes em [`SIMPLES_NACIONAL.md`](SIMPLES_NACIONAL.md).
 
 ### Validações (determinísticas, sempre)
 - Soma dos débitos = soma dos créditos.
@@ -358,9 +359,9 @@ fase de implementação, conferindo a documentação vigente da API.)
 
 ## 13. Decisões em aberto
 
-- **Regime tributário inicial.** Recomendação: começar por **Simples Nacional / Lucro Presumido**
-  (PMEs, classificação mais enxuta), com o plano de contas projetado para ser **regime-aware**
-  desde o início, permitindo expandir para Lucro Real.
+- ~~**Regime tributário inicial.**~~ **DEFINIDO: Simples Nacional** (escrituração completa,
+  partida dobrada). Especificidades em [`SIMPLES_NACIONAL.md`](SIMPLES_NACIONAL.md). O plano de
+  contas continua projetado para ser **regime-aware**, permitindo expandir para Presumido/Real.
 - **Multi-tenant.** Modelo de isolamento de dados entre clientes (schema por tenant vs. linha por
   tenant).
 - **Autenticação / autorização.** API keys, escopos, papéis (integração vs. contador revisor).
