@@ -148,7 +148,9 @@ documento. Versionado (`/v1`). Autenticação por API key/tenant (ver §13).
 |--------|------|-----------|
 | `PUT`  | `/v1/empresas/{id}/plano-de-contas` | **Envia/sincroniza o plano de contas da empresa** (vindo do sistema único). Cria uma nova versão; idempotente por conteúdo. |
 | `GET`  | `/v1/empresas/{id}/plano-de-contas` | Consulta o plano de contas vigente (ou uma versão específica via `?versao=`). |
+| `PUT`  | `/v1/empresas/{id}/lancamentos-historicos` | **Importa lançamentos anteriores** (do sistema único) como base de conhecimento da classificação (ver §7). Lote. |
 | `POST` | `/v1/documentos` | Envia um documento (multipart ou base64). Retorna `job_id`. Idempotente por hash. |
+| `POST` | `/v1/documentos/lote` | Envia vários documentos num request (lista ou `.zip`). Retorna um `job_id` por documento. |
 | `GET`  | `/v1/jobs/{job_id}` | Status do processamento de um documento. |
 | `GET`  | `/v1/eventos/{id}` | Um evento econômico normalizado + seus documentos e lançamentos. |
 | `GET`  | `/v1/lancamentos` | Lista lançamentos (filtros: período, conta, status, confiança). |
@@ -187,6 +189,34 @@ Content-Type: application/json
 O `id` da empresa amarra todo o restante (documentos, eventos, lançamentos) a este plano. A
 classificação (§7) só escolhe contas com `aceita_lancamento: true` deste plano vigente; contas
 analíticas/sintéticas e o mapeamento SPED são preservados para validação e export.
+
+### Exemplo — importação de lançamentos anteriores (base de conhecimento, §7)
+```http
+PUT /v1/empresas/emp_01HXZ.../lancamentos-historicos
+Content-Type: application/json
+
+{
+  "origem": "sistema_unico",
+  "lancamentos": [
+    {
+      "data_competencia": "2026-05-12",
+      "historico": "Compra material de escritório - ACME",
+      "contraparte": { "cnpj": "12345678000190", "nome": "ACME" },
+      "partidas": [
+        { "conta": "3.1.2.01.001", "debito": 980.00, "credito": 0.00 },
+        { "conta": "1.1.1.02.001", "debito": 0.00,   "credito": 980.00 }
+      ]
+    }
+  ]
+}
+```
+```json
+// 200 OK
+{ "empresa_id": "emp_01HXZ...", "importados": 4120, "ignorados_invalidos": 7,
+  "contrapartes_distintas": 318 }
+```
+Esses lançamentos entram como referência (`origem: historico`) e passam a alimentar a
+classificação — não geram novos eventos econômicos nem novos documentos.
 
 ### Exemplo — envio de documento
 ```http
@@ -238,6 +268,98 @@ Content-Type: application/json
 Note que `partidas` soma zero (1250 débito / 1250 crédito) e cada lançamento aponta para o
 documento, hash e o **campo exato** de onde o valor veio — essa é a rastreabilidade ponta a ponta.
 
+### Insumos aceitos
+
+Tudo que a API consome, com o identificador `tipo` usado no envio:
+
+| Insumo | `tipo` | Formato / MIME | Fase | Observações |
+|--------|--------|----------------|------|-------------|
+| Plano de contas da empresa | — (endpoint próprio) | JSON | 1 | **Pré-requisito** — sem plano vigente não há classificação (§2, §7). |
+| Lançamentos anteriores | `lancamentos_historicos` (endpoint próprio) | JSON | 1 | **Base de conhecimento** da classificação (ver §7). Opcional, fortemente recomendado. |
+| NF-e / NFC-e | `nfe_xml` | XML (`application/xml`) | 1 | Modelos 55/65, layout 4.00. |
+| NFS-e | `nfse_xml` | XML | 1 | ⚠️ Layout fragmentado por município / padrão nacional (DPS). |
+| Extrato bancário | `extrato_ofx` | OFX/OFC (`application/x-ofx`) | 1 | `FITID` usado para deduplicação. |
+| Retorno bancário | `extrato_cnab` | TXT CNAB 240/400 | 1 | Se o cliente usar retorno FEBRABAN. |
+| Extrato em PDF | `extrato_pdf` | PDF | 3 | OCR/LLM; validar somatório vs. saldo. |
+| Comprovante | `comprovante_pdf` | PDF | 3 | Evidência de pagamento p/ conciliação. |
+| Planilha | `planilha_xlsx` | XLSX | 3 | Exige template mapeado; validação determinística (§5). |
+| Guia/declaração do Simples | `das` | PDF/JSON | 2 | Conciliação e segregação do tributo (ver `SIMPLES_NACIONAL.md`). |
+
+**Identificadores obrigatórios em todo envio:** `empresa_id` (amarra ao plano e à base de
+conhecimento) e `origem`; `competencia` é opcional (inferida do documento quando ausente).
+
+### Formas de envio (ingestão)
+
+A ingestão é **assíncrona**: todo envio responde `202 Accepted` com um `job_id`; o processamento
+corre na fila (§3). **Pré-requisito:** a empresa precisa ter um plano de contas vigente — sem ele,
+a API responde erro explícito (ou retém o documento até o plano chegar).
+
+Três canais para enviar um documento, pelo mesmo endpoint `POST /v1/documentos`:
+- **JSON + `conteudo_base64`** — ideal para XML/OFX pequenos (exemplo acima).
+- **`multipart/form-data`** — ideal para binários (PDF/XLSX), evita inflar com base64.
+- **`conteudo_url`** — referência a um arquivo no storage do consumidor; a API o **puxa**.
+
+Para volume, **envio em lote** via `POST /v1/documentos/lote` (lista de documentos ou um `.zip`):
+```http
+POST /v1/documentos/lote
+Content-Type: application/json
+
+{
+  "empresa_id": "emp_01HXZ...",
+  "origem": "integracao_erp",
+  "documentos": [
+    { "tipo": "nfe_xml",     "conteudo_base64": "PD94bWwg..." },
+    { "tipo": "extrato_ofx", "conteudo_url": "https://storage.cliente/extrato-06.ofx" }
+  ]
+}
+```
+```json
+// 202 Accepted
+{ "jobs": [
+  { "tipo": "nfe_xml",     "job_id": "job_01A...", "documento_id": "doc_01A...", "duplicado": false },
+  { "tipo": "extrato_ofx", "job_id": "job_01B...", "documento_id": "doc_01B...", "duplicado": false }
+] }
+```
+**Idempotência por hash** em todos os canais: reenviar o mesmo arquivo retorna o documento
+existente (`duplicado: true`) sem reprocessar. Tipos desconhecidos e arquivos acima do tamanho
+máximo são rejeitados na ingestão. *(Futuro: conectores de push do sistema único ou pull agendado.)*
+
+### Devolução do lançamento contábil (entrega do resultado)
+
+O resultado é entregue de **dois modos complementares**:
+- **Push (webhook):** quando um lançamento fica pronto, a API chama a URL registrada
+  (`POST /v1/webhooks`) com o payload do lançamento.
+- **Pull (GET):** consulta sob demanda por `job` (`/v1/jobs/{id}`), por `evento`
+  (`/v1/eventos/{id}`) ou por `lancamento` (`/v1/lancamentos`).
+
+**Ciclo de status do job:** `recebido → processando → classificado →` então
+`concluido` (lançamento em rascunho pronto) **ou** `aguardando_revisao` (baixa confiança / conta
+faltante) **ou** `erro`.
+
+**Ciclo de status do lançamento:** `rascunho → aprovado` | `corrigido` (gera estorno + novo, §8) |
+`rejeitado`. Coerente com o posicionamento de **copiloto**, lançamentos de baixa confiança ficam
+em `aguardando_revisao` e **não viram definitivos** até aprovação humana (§9).
+
+O **payload do lançamento** é o já exemplificado acima (partidas que somam zero, `confianca`,
+`justificativa`, `rastreabilidade` com documento/hash/campo, `evento_id`, `data_competencia`).
+Exemplo do **webhook** de "lançamento pronto":
+```json
+// POST para a URL registrada pelo consumidor
+{
+  "evento": "lancamento.pronto",
+  "empresa_id": "emp_01HXZ...",
+  "job_id": "job_01HXZ...",
+  "status_job": "concluido",
+  "lancamento": { "lancamento_id": "lanc_01HXZ...", "status": "rascunho", "...": "ver exemplo acima" }
+}
+```
+**Formatos de saída:** JSON por padrão; exports agregados (CSV/relatórios) e SPED ficam para fase
+posterior — lembrando que o Simples é, em regra, dispensado de ECD (ver `SIMPLES_NACIONAL.md`).
+
+**Mapa resumido:** `enviar insumo (§4) → processar (§3: extração → conciliação → classificação →
+partida dobrada → ledger) → devolver lançamento (webhook/GET) → aprovar/corrigir (§9, realimenta
+a base de conhecimento)`.
+
 ---
 
 ## 5. Extração por tipo de documento
@@ -246,17 +368,29 @@ Princípio central: **estruturado primeiro**. Quanto mais estruturada a fonte, m
 menor o custo. E **sempre validar a extração contra um total conhecido** (ex.: somar as linhas e
 conferir com o `vNF` da nota, ou com o saldo do extrato).
 
-| Tipo | Estrutura | Estratégia | Fase |
-|------|-----------|-----------|------|
-| **NF-e / NFS-e (XML)** | Alta (layout 4.00 padronizado) | Parser determinístico do XML; campos fiscais diretos (CFOP, NCM, vNF, emitente/destinatário). | **1** |
-| **Extrato OFX / CNAB** | Alta (formato padrão bancário) | Parser determinístico; cada transação vira um `EventoEconomico`. | **1** |
-| **Extrato em PDF** | Baixa | OCR/LLM → tabela de transações; **validar somatório contra saldo inicial/final**. | 3 |
-| **Comprovante em PDF** | Baixa | LLM extrai valor/data/contraparte; serve sobretudo como **evidência de pagamento** para conciliar. | 3 |
-| **Planilha xlsx** | Variável | Mapeamento de schema (detecção de colunas + confirmação do usuário); validar totais. | 3 |
+| Tipo (`tipo`) | Estrutura | Estratégia | Fase |
+|---------------|-----------|-----------|------|
+| **NF-e / NFS-e (XML)** (`nfe_xml`, `nfse_xml`) | Alta (layout 4.00 padronizado) | Parser determinístico do XML; campos fiscais diretos (CFOP, NCM, vNF, emitente/destinatário). | **1** |
+| **Extrato OFX / CNAB** (`extrato_ofx`, `extrato_cnab`) | Alta (formato padrão bancário) | Parser determinístico; cada transação vira um `EventoEconomico`. | **1** |
+| **Extrato em PDF** (`extrato_pdf`) | Baixa | OCR/LLM → tabela de transações; **validar somatório contra saldo inicial/final**. | 3 |
+| **Comprovante em PDF** (`comprovante_pdf`) | Baixa | LLM extrai valor/data/contraparte; serve sobretudo como **evidência de pagamento** para conciliar. | 3 |
+| **Planilha xlsx** (`planilha_xlsx`) | Variável | Template mapeado uma vez (humano) + extração determinística; validar totais. | 3 |
 
 Começar por XML e OFX prova o pipeline inteiro (normalização, classificação, partida dobrada,
 ledger, rastreabilidade) com **sinal limpo**, sem o ruído da extração não estruturada. PDF/xlsx
 entram depois, reaproveitando todo o resto do pipeline.
+
+### Validação determinística (sem IA)
+A **validação é sempre determinística**, independentemente de a extração usar IA: o que falha não
+é classificado — vai para a fila de revisão (§9). Para o caso difícil (xlsx/PDF), isso dispensa IA
+na validação combinando:
+- **Template mapeado uma vez** por origem (humano define quais colunas são o quê; reaproveitado em
+  toda importação) — resolve o mapeamento sem IA por arquivo.
+- **Cheques aritméticos:** cross-foot (soma das linhas = total declarado), saldo corrido
+  (`saldo_anterior + entradas − saídas = saldo_final`), débito = crédito.
+- **Cheques de integridade:** dígito verificador de CNPJ/CPF, datas no período, enums válidos.
+- **Conciliação contra fonte forte:** validar o insumo fraco (xlsx) contra um estruturado já
+  confiável (soma das NF-e XML, saldo do OFX).
 
 ---
 
@@ -297,13 +431,25 @@ A classificação **nunca inventa conta**: ela escolhe entre as `Conta`s com `ac
 true` do **plano de contas vigente da empresa** (sincronizado do sistema único — §2 e §4). O
 plano é o espaço de busca fechado da classificação.
 
-- **Camada de regras (primeiro):** mapeamentos determinísticos de alta confiança — ex.: CFOP →
-  natureza da operação; histórico do fornecedor → conta usada da última vez **naquele plano**.
-  Barata, explicável, auditável.
-- **Camada LLM (quando a regra não decide):** para casos ambíguos, o LLM recebe **as contas do
-  plano da empresa como opções** e sugere a mais adequada a partir do contexto (descrição,
-  contraparte, histórico), **sempre retornando uma justificativa** e alimentando a `confianca`.
-  Casos de baixa confiança vão para revisão humana.
+- **Camada de regras + base de conhecimento (primeiro):** mapeamentos determinísticos de alta
+  confiança apoiados nos **lançamentos anteriores da empresa** (importados via
+  `PUT /v1/empresas/{id}/lancamentos-historicos` e/ou já no ledger). Ex.: CFOP → natureza da
+  operação; **por contraparte (CNPJ/CPF), a conta historicamente mais usada**, com frequência →
+  confiança e justificativa ("fornecedor ACME classificado em 3.1.2.01.001 em 18 dos últimos 20
+  lançamentos"). Barata, explicável, auditável.
+- **Camada LLM (quando a regra não decide):** para casos ambíguos, recupera-se do histórico os
+  **lançamentos semelhantes** e passa-os ao LLM como **exemplos (few-shot)**, junto das contas do
+  plano da empresa como opções. O LLM sugere a conta mais adequada, **sempre com justificativa** e
+  alimentando a `confianca`. Casos de baixa confiança vão para revisão humana.
+
+### Base de conhecimento (lançamentos anteriores)
+A classificação se apoia no **histórico de escrituração já classificado** da empresa — não é uma
+entidade nova: **é o próprio ledger** (lançamentos passados) somado ao histórico importado do
+sistema único (marcado como `origem: historico`, sem reprocessar como novo evento). Benefícios:
+- **Acurácia desde o dia 1** (resolve o cold-start): a empresa já tem anos de classificação feita.
+- **Memória determinística** por contraparte/padrão de documento e **retrieval** de exemplos p/ o LLM.
+- **Realimentação:** cada lançamento aprovado/corrigido entra na base (§9), tornando o sistema
+  mais autônomo ao longo do tempo — sem nunca perder rastreabilidade.
 
 ### Plano de contas e regime
 - **Plano de contas da própria empresa**, enviado/sincronizado pelo consumidor a partir do
@@ -349,9 +495,10 @@ O fluxo de "copiloto" depende de **calibrar confiança** e rotear o que precisa 
 - **Fila de revisão** (`/v1/revisoes`): tudo abaixo de um limiar, ou em conflito de conciliação,
   espera aprovação humana antes de virar lançamento definitivo.
 - **Fluxo de aprovação:** aprovar, corrigir (gera estorno+novo) ou rejeitar.
-- **Aprendizado com correções:** correções do contador viram **novas regras** (ex.: "fornecedor X
-  sempre na conta Y") e exemplos para melhorar a classificação — o sistema fica mais autônomo com
-  o tempo, sem nunca perder a rastreabilidade.
+- **Aprendizado com correções:** cada lançamento aprovado/corrigido **entra na base de
+  conhecimento** (§7) — vira nova memória determinística por contraparte (ex.: "fornecedor X
+  sempre na conta Y") e novo exemplo para o retrieval do LLM. O sistema fica mais autônomo com o
+  tempo, sem nunca perder a rastreabilidade.
 
 ---
 
