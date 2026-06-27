@@ -125,7 +125,11 @@ completa.
 
 ## 7. Plano de contas — recorte para o Simples
 
-Plano referencial, com as contas-chave que o regime exige:
+> **O plano de contas é o da própria empresa**, sincronizado a partir do sistema único (ver
+> `CONCEITO.md` §2 e §4). O recorte abaixo é **ilustrativo**: serve como referência das
+> contas-chave que o regime costuma exigir e para conferir se o plano da empresa as cobre (e, se
+> não cobrir, sinalizar a lacuna na revisão). A classificação só usa contas existentes no plano
+> vigente.
 
 ```
 1 ATIVO

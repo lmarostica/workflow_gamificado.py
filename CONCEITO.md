@@ -63,8 +63,14 @@ Essa separação é o que permite conciliação e rastreabilidade.
   ou mais linhas de débito e crédito que **somam zero**. Aponta para o `EventoEconomico` e,
   através dele, para os `Documento`s de origem. Carrega `confianca` e `justificativa`.
 
-- **`Conta`** — entrada do **plano de contas** (referencial SPED), com código, natureza
-  (ativo/passivo/receita/despesa/resultado) e regras de uso.
+- **`Conta`** — entrada do **plano de contas da própria empresa**, sincronizado a partir do
+  **sistema único** (ver §4). Tem código, descrição, natureza (ativo/passivo/receita/despesa/
+  resultado) e, opcionalmente, um **mapeamento para uma conta referencial SPED** (para
+  padronização e export). A classificação (§7) só pode usar contas que existam neste plano.
+
+- **`PlanoDeContas`** — o conjunto de `Conta`s de uma empresa, com **versão** e data de
+  sincronização. É um insumo de configuração: a empresa o envia/atualiza antes (e ao longo) do
+  processamento. Sem plano de contas vigente, não há classificação possível.
 
 - **`Periodo`** — competência contábil (mês/ano); controla abertura/fechamento.
 
@@ -140,6 +146,8 @@ documento. Versionado (`/v1`). Autenticação por API key/tenant (ver §13).
 ### Endpoints principais
 | Método | Rota | Descrição |
 |--------|------|-----------|
+| `PUT`  | `/v1/empresas/{id}/plano-de-contas` | **Envia/sincroniza o plano de contas da empresa** (vindo do sistema único). Cria uma nova versão; idempotente por conteúdo. |
+| `GET`  | `/v1/empresas/{id}/plano-de-contas` | Consulta o plano de contas vigente (ou uma versão específica via `?versao=`). |
 | `POST` | `/v1/documentos` | Envia um documento (multipart ou base64). Retorna `job_id`. Idempotente por hash. |
 | `GET`  | `/v1/jobs/{job_id}` | Status do processamento de um documento. |
 | `GET`  | `/v1/eventos/{id}` | Um evento econômico normalizado + seus documentos e lançamentos. |
@@ -149,6 +157,36 @@ documento. Versionado (`/v1`). Autenticação por API key/tenant (ver §13).
 | `POST` | `/v1/lancamentos/{id}/corrigir` | Corrige (gera estorno + novo lançamento — ver §8). |
 | `POST` | `/v1/exports/sped` | Solicita export do período (ECD/ECF) — fase posterior. |
 | `POST` | `/v1/webhooks` | Registra URL para receber eventos de status. |
+
+### Exemplo — envio do plano de contas (do sistema único)
+```http
+PUT /v1/empresas/emp_01HXZ.../plano-de-contas
+Content-Type: application/json
+
+{
+  "origem": "sistema_unico",
+  "referencia_versao": "2026-06",
+  "contas": [
+    { "codigo": "1.1.1.02.001", "descricao": "Banco Conta Movimento", "natureza": "ativo",   "aceita_lancamento": true,  "conta_referencial_sped": "1.01.01.02.00" },
+    { "codigo": "2.1.3.00.001", "descricao": "Simples Nacional a Recolher", "natureza": "passivo", "aceita_lancamento": true,  "conta_referencial_sped": "2.01.04.00.00" },
+    { "codigo": "3.1.2.00.000", "descricao": "Receita de Serviços", "natureza": "receita", "aceita_lancamento": false, "conta_referencial_sped": null },
+    { "codigo": "3.1.2.01.001", "descricao": "Material de escritório", "natureza": "despesa", "aceita_lancamento": true,  "conta_referencial_sped": "3.02.01.00.00" }
+  ]
+}
+```
+```json
+// 200 OK
+{
+  "empresa_id": "emp_01HXZ...",
+  "plano_versao": 7,
+  "total_contas": 142,
+  "vigente_desde": "2026-06-27T14:03:00Z",
+  "avisos": ["3 contas sem mapeamento referencial SPED"]
+}
+```
+O `id` da empresa amarra todo o restante (documentos, eventos, lançamentos) a este plano. A
+classificação (§7) só escolhe contas com `aceita_lancamento: true` deste plano vigente; contas
+analíticas/sintéticas e o mapeamento SPED são preservados para validação e export.
 
 ### Exemplo — envio de documento
 ```http
@@ -254,22 +292,31 @@ valor. A conciliação é o que evita isso e o que liga competência (regime de 
 A geração da **partida dobrada é determinística e é a parte fácil** — é onde a engenharia
 contábil clássica entra. A inteligência fica na **classificação** (qual conta usar).
 
-### Classificação: regras + LLM
+### Classificação: regras + LLM (sempre dentro do plano da empresa)
+A classificação **nunca inventa conta**: ela escolhe entre as `Conta`s com `aceita_lancamento:
+true` do **plano de contas vigente da empresa** (sincronizado do sistema único — §2 e §4). O
+plano é o espaço de busca fechado da classificação.
+
 - **Camada de regras (primeiro):** mapeamentos determinísticos de alta confiança — ex.: CFOP →
-  natureza da operação; histórico do fornecedor → conta usada da última vez. Barata, explicável,
-  auditável.
-- **Camada LLM (quando a regra não decide):** para casos ambíguos, o LLM sugere a conta a partir
-  do contexto (descrição, contraparte, histórico), **sempre retornando uma justificativa** e
-  alimentando a `confianca`. Casos de baixa confiança vão para revisão humana.
+  natureza da operação; histórico do fornecedor → conta usada da última vez **naquele plano**.
+  Barata, explicável, auditável.
+- **Camada LLM (quando a regra não decide):** para casos ambíguos, o LLM recebe **as contas do
+  plano da empresa como opções** e sugere a mais adequada a partir do contexto (descrição,
+  contraparte, histórico), **sempre retornando uma justificativa** e alimentando a `confianca`.
+  Casos de baixa confiança vão para revisão humana.
 
 ### Plano de contas e regime
-- Plano de contas **referencial SPED**, sensível ao **regime tributário** (Simples / Presumido /
-  Real) — o regime muda contas e tratamento. **Regime inicial definido: Simples Nacional**, com
+- **Plano de contas da própria empresa**, enviado/sincronizado pelo consumidor a partir do
+  **sistema único** (§4). O mapeamento opcional `conta_referencial_sped` por conta permite
+  padronização e export sem impor um plano fixo.
+- Sensível ao **regime tributário**; **regime inicial definido: Simples Nacional**, com
   escrituração completa (partida dobrada). Detalhes em [`SIMPLES_NACIONAL.md`](SIMPLES_NACIONAL.md).
+- **Contas faltantes:** se um evento não tem conta adequada no plano vigente, o lançamento vai
+  para revisão sinalizando a lacuna (em vez de criar conta automaticamente).
 
 ### Validações (determinísticas, sempre)
 - Soma dos débitos = soma dos créditos.
-- Contas existem e são válidas para o tipo de operação.
+- Contas existem **no plano vigente da empresa**, aceitam lançamento e são válidas para a operação.
 - Período de competência está aberto.
 - Valores conferem com os totais do documento de origem.
 
