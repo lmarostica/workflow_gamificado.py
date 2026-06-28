@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35260199887766000155550010000000021000000025" versao="4.00">
+      <ide>
+        <natOp>COMPRA PARA COMERCIALIZACAO</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>2</nNF>
+        <dhEmi>2026-04-08T14:40:00-03:00</dhEmi>
+        <tpNF>0</tpNF>
+      </ide>
+      <emit>
+        <CNPJ>99887766000155</CNPJ>
+        <xNome>DISTRIBUIDORA GAMA SA</xNome>
+      </emit>
+      <dest>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>MINHA EMPRESA LTDA</xNome>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>MERC100</cProd>
+          <xProd>Lote de produtos para revenda</xProd>
+          <NCM>61091000</NCM>
+          <CFOP>1102</CFOP>
+          <vProd>1800.00</vProd>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot>
+          <vNF>1800.00</vNF>
+        </ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>

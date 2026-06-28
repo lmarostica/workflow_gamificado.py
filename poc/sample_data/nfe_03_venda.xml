@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35260111222333000181550010000000031000000033" versao="4.00">
+      <ide>
+        <natOp>VENDA DE MERCADORIA</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>3</nNF>
+        <dhEmi>2026-04-12T09:05:00-03:00</dhEmi>
+        <tpNF>1</tpNF>
+      </ide>
+      <emit>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>MINHA EMPRESA LTDA</xNome>
+      </emit>
+      <dest>
+        <CNPJ>44455566000177</CNPJ>
+        <xNome>CLIENTE NOVO COMERCIO LTDA</xNome>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>VEN500</cProd>
+          <xProd>Venda de mercadorias</xProd>
+          <NCM>61091000</NCM>
+          <CFOP>5102</CFOP>
+          <vProd>3200.00</vProd>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot>
+          <vNF>3200.00</vNF>
+        </ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>

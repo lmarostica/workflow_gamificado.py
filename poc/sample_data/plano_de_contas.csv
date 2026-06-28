@@ -1,0 +1,11 @@
+codigo,descricao,natureza,aceita_lancamento,alvo_classificacao,conta_referencial_sped
+1.1.1.02.001,Banco Conta Movimento,ativo,sim,nao,1.01.01.02.00
+1.1.2.01.001,Clientes,ativo,sim,nao,1.01.02.01.00
+1.1.3.01.001,Estoque de Mercadorias,ativo,sim,sim,1.01.03.01.00
+2.1.1.01.001,Fornecedores,passivo,sim,nao,2.01.01.01.00
+2.1.3.00.001,Simples Nacional a Recolher,passivo,sim,nao,
+3.1.1.01.001,Receita de Venda de Mercadorias,receita,sim,sim,
+3.1.2.01.001,Receita de Prestacao de Servicos,receita,sim,sim,
+4.1.1.01.001,Material de Escritorio,despesa,sim,sim,
+4.1.2.01.001,Despesas com Software e TI,despesa,sim,sim,
+4.1.3.01.001,Energia Eletrica,despesa,sim,sim,

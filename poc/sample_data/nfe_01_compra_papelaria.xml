@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+  <NFe>
+    <infNFe Id="NFe35260112345678000190550010000000011000000017" versao="4.00">
+      <ide>
+        <natOp>COMPRA DE MATERIAL DE USO E CONSUMO</natOp>
+        <mod>55</mod>
+        <serie>1</serie>
+        <nNF>1</nNF>
+        <dhEmi>2026-04-03T10:15:00-03:00</dhEmi>
+        <tpNF>0</tpNF>
+      </ide>
+      <emit>
+        <CNPJ>12345678000190</CNPJ>
+        <xNome>PAPELARIA ACME LTDA</xNome>
+      </emit>
+      <dest>
+        <CNPJ>11222333000181</CNPJ>
+        <xNome>MINHA EMPRESA LTDA</xNome>
+      </dest>
+      <det nItem="1">
+        <prod>
+          <cProd>PAP001</cProd>
+          <xProd>Resma de papel A4 75g caixa com 10</xProd>
+          <NCM>48025690</NCM>
+          <CFOP>1556</CFOP>
+          <vProd>250.00</vProd>
+        </prod>
+      </det>
+      <total>
+        <ICMSTot>
+          <vNF>250.00</vNF>
+        </ICMSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>

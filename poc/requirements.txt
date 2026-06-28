@@ -1,0 +1,3 @@
+# Dependências de runtime da PoC.
+# O parsing de NF-e usa a stdlib (xml.etree); só o classificador via LLM precisa do SDK.
+anthropic>=0.40

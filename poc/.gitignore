@@ -1,0 +1,5 @@
+# Saídas geradas pela PoC
+saida_lancamentos.csv
+saida_lancamentos.json
+__pycache__/
+*.pyc
