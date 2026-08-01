@@ -1,0 +1,6 @@
+# Dados de execução (substitui a planilha; não versionar)
+workflows.json
+
+__pycache__/
+*.pyc
+.venv/
