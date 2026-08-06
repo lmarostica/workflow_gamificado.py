@@ -1,0 +1,20 @@
+# Copie para config.yaml na máquina Windows e preencha.
+
+# Endereço da API de orquestração (servidor central)
+api_url: "http://servidor-do-escritorio:8000"
+
+# Chave de worker — o valor de ORCH_WORKER_API_KEY no .env do servidor
+api_key: "troque-esta-chave-worker"
+
+# Identificador único desta máquina (ex.: hostname). Aparece nos jobs.
+worker_id: "estacao-contabil-01"
+
+# De quanto em quanto tempo consultar a fila quando ociosa (segundos)
+poll_interval_seconds: 5
+
+# Intervalo do heartbeat enquanto um RPA executa (segundos).
+# O servidor considera o job órfão após ~120s sem heartbeat.
+heartbeat_interval_seconds: 30
+
+# Quantos KB finais da saída (stdout+stderr) enviar no report
+log_tail_kb: 64

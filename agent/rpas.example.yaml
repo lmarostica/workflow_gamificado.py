@@ -1,0 +1,30 @@
+# Copie para rpas.yaml na máquina Windows.
+# Mapeia o nome do RPA (o mesmo cadastrado na API em POST /rpas)
+# para o comando local que o executa.
+#
+# Campos por RPA:
+#   command          lista: executável + argumentos fixos (obrigatório)
+#   workdir          diretório de trabalho (opcional)
+#   timeout_seconds  tempo máximo de execução (padrão 3600)
+#   params_as        como entregar os params do job ao script:
+#                      args      -> --chave valor na linha de comando
+#                      env       -> variáveis de ambiente RPA_PARAM_<CHAVE>
+#                      json_file -> caminho de um .json como último argumento
+
+rpas:
+  importar_extrato:
+    command: ["C:\\rpa\\venv\\Scripts\\python.exe", "C:\\rpa\\importar_extrato.py"]
+    workdir: "C:\\rpa"
+    timeout_seconds: 1800
+    params_as: "args"
+
+  conciliacao_bancaria:
+    command: ["C:\\rpa\\venv\\Scripts\\python.exe", "C:\\rpa\\conciliacao.py"]
+    workdir: "C:\\rpa"
+    timeout_seconds: 3600
+    params_as: "json_file"
+
+  fechar_folha:
+    command: ["C:\\rpa\\fechar_folha.bat"]
+    timeout_seconds: 3600
+    params_as: "env"
